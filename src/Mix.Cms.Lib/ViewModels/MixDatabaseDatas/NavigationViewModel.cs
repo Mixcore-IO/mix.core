@@ -73,7 +73,7 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
             {
                 if (MixDatabaseName == MixConstants.MixDatabaseName.NAVIGATION && Obj != null)
                 {
-                    return Obj.ToObject<MixNavigation>();
+                    return new MixNavigation(Obj, Specificulture);
                 }
                 return null;
             }
@@ -102,16 +102,16 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
             UnitOfWorkHelper<MixCmsContext>.InitTransaction(
                    _context, _transaction,
                    out MixCmsContext context, out IDbContextTransaction transaction, out bool isRoot);
-            
+
             Columns ??= MixDatabaseColumns.ReadViewModel.Repository.GetModelListBy(f => f.MixDatabaseId == MixDatabaseId
            , context, transaction).Data;
-            
+
             if (Obj == null)
             {
                 Obj = Helper.ParseData(Id, Specificulture, context, transaction);
             }
 
-            if (Columns.Any(c =>c.DataType == MixDataType.Reference))
+            if (Columns.Any(c => c.DataType == MixDataType.Reference))
             {
                 Obj.LoadAllReferenceData(Id, MixDatabaseId, Specificulture,
                 Columns

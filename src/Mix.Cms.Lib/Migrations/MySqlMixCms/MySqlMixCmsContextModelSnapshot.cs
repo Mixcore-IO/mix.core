@@ -15,7 +15,7 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("Relational:MaxIdentifierLength", 64)
-                .HasAnnotation("ProductVersion", "5.0.1");
+                .HasAnnotation("ProductVersion", "5.0.8");
 
             modelBuilder.Entity("Mix.Cms.Lib.Models.Cms.MixCmsUser", b =>
                 {
@@ -325,7 +325,7 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
                         .HasColumnType("int");
 
                     b.Property<string>("Configurations")
-                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("varchar(50)")
@@ -989,7 +989,7 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
                         .HasColumnType("int");
 
                     b.Property<string>("PostType")
-                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -1239,7 +1239,7 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
                         .HasColumnType("int");
 
                     b.Property<string>("PostType")
-                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -1562,7 +1562,7 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(50)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("CreatedDateTime")
                         .HasColumnType("datetime");
@@ -1573,7 +1573,7 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
                     b.Property<string>("ModifiedBy")
                         .HasMaxLength(50)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<int>("PageId")
                         .HasColumnType("int");
@@ -1583,13 +1583,13 @@ namespace Mix.Cms.Lib.Migrations.MySqlMixCms
 
                     b.Property<string>("RoleId")
                         .HasMaxLength(50)
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4");
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id")
                         .HasName("PK_mix_portal_page_role");

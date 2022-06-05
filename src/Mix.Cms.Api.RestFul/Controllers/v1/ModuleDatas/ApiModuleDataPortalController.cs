@@ -30,7 +30,7 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
     {
         public ApiModuleDataDataController(
             DefaultRepository<MixCmsContext, MixModuleData, UpdateViewModel> repo,
-            DefaultRepository<MixCmsContext, MixModuleData, UpdateViewModel> updRepo, 
+            DefaultRepository<MixCmsContext, MixModuleData, UpdateViewModel> updRepo,
             DefaultRepository<MixCmsContext, MixModuleData, UpdateViewModel> delRepo,
             MixIdentityHelper mixIdentityHelper,
             AuditLogRepository auditlogRepo) :
@@ -117,7 +117,7 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         }
 
         // GET api/module-data/create/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("init-form/{moduleId}")]
         public async Task<ActionResult<UpdateViewModel>> InitByIdAsync(int moduleId)
         {
@@ -142,7 +142,7 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         }
 
         // GET api/module-data/create/id
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("save/{moduleName}")]
         public async Task<RepositoryResponse<UpdateViewModel>> SaveByName(string moduleName, [FromBody] JObject data)
         {

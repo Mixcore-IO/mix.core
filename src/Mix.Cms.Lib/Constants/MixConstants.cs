@@ -29,16 +29,16 @@
         public const string CONST_DEFAULT_EXTENSION_FILE_NAME = "extensions.json";
         public const string CONST_DEFAULT_STRING_ID = "default";
         public const string CONST_UPLOAD_FOLDER_DATE_FORMAT = "yyyy-MM";
-        public const string CONST_MIXDB_PREFIX  = "mixdb_";
-        public const string CONST_RSA_PUBLIC_KEY  = "PublicKey";
-        public const string CONST_RSA_PRIVATE_KEY  = "PrivateKey";
+        public const string CONST_MIXDB_PREFIX = "mixdb_";
+        public const string CONST_RSA_PUBLIC_KEY = "PublicKey";
+        public const string CONST_RSA_PRIVATE_KEY = "PrivateKey";
 
 
         public static class MixDatabaseName
         {
-            public const string ADDITIONAL_FIELD_PAGE = "sys_additional_field_page";
-            public const string ADDITIONAL_FIELD_POST = "sys_additional_field_post";
-            public const string ADDITIONAL_FIELD_MODULE = "sys_additional_field_module";
+            public const string ADDITIONAL_COLUMN_PAGE = "sys_additional_column_page";
+            public const string ADDITIONAL_COLUMN_POST = "sys_additional_column_post";
+            public const string ADDITIONAL_COLUMN_MODULE = "sys_additional_column_module";
             public const string NAVIGATION = "sys_navigation";
             public const string MENU_ITEM = "sys_menu_item";
             public const string SYSTEM_CATEGORY = "sys_category";

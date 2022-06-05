@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Mix.Cms.Lib.Constants;
 using Mix.Cms.Lib.Enums;
-using Mix.Cms.Lib.Helpers;
 using Mix.Cms.Lib.Models.Cms;
 using Mix.Cms.Lib.Services;
 using Mix.Cms.Lib.SignalR.Hubs;
@@ -42,7 +41,7 @@ namespace Mix.Cms.Api.Controllers.v1
         #region Get
 
         // GET api/module/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("delete/{id}")]
         public async Task<RepositoryResponse<MixModule>> DeleteAsync(int id)
         {
@@ -51,7 +50,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/modules/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("details/{id}/{viewType}")]
         [Route("details/{viewType}")]
         public async Task<ActionResult<JObject>> Details(string viewType, int? id)
@@ -112,7 +111,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // POST api/module
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("save")]
         public async Task<RepositoryResponse<UpdateViewModel>> Save([FromBody] UpdateViewModel model)
         {
@@ -126,7 +125,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // POST api/module
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("save/{id}")]
         public async Task<RepositoryResponse<MixModule>> SaveFields(int id, [FromBody] List<EntityField> fields)
         {
@@ -150,7 +149,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // POST api/module
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("data/save/{name}/{formName}")]
         public async Task<ActionResult<JObject>> SaveData(string name, string formName, [FromBody] JObject obj)
         {
@@ -168,7 +167,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/module
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("list")]
         public async Task<ActionResult<JObject>> GetList(
             [FromBody] RequestPaging request)
@@ -210,7 +209,7 @@ namespace Mix.Cms.Api.Controllers.v1
             }
         }
 
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("update-infos")]
         public async Task<RepositoryResponse<List<ReadListItemViewModel>>> UpdateInfos([FromBody] List<ReadListItemViewModel> models)
         {
@@ -224,7 +223,7 @@ namespace Mix.Cms.Api.Controllers.v1
             }
         }
 
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("apply-list")]
         public async Task<ActionResult<JObject>> ListActionAsync([FromBody] ListAction<int> data)
         {

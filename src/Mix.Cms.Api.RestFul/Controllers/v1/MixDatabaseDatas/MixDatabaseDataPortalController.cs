@@ -26,9 +26,9 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         BaseAuthorizedRestApiController<MixCmsContext, MixDatabaseData, FormViewModel, FormViewModel, DeleteViewModel>
     {
         public MixDatabaseDataPortalController(
-            DefaultRepository<MixCmsContext, MixDatabaseData, FormViewModel> repo, 
-            DefaultRepository<MixCmsContext, MixDatabaseData, FormViewModel> updRepo, 
-            DefaultRepository<MixCmsContext, MixDatabaseData, DeleteViewModel> delRepo, 
+            DefaultRepository<MixCmsContext, MixDatabaseData, FormViewModel> repo,
+            DefaultRepository<MixCmsContext, MixDatabaseData, FormViewModel> updRepo,
+            DefaultRepository<MixCmsContext, MixDatabaseData, DeleteViewModel> delRepo,
             MixIdentityHelper mixIdentityHelper,
             AuditLogRepository auditlogRepo) :
             base(repo, updRepo, delRepo, mixIdentityHelper, auditlogRepo)
@@ -79,7 +79,8 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
                         MixDatabaseName = getAttrSet.Data.Name,
                         Status = MixContentStatus.Published,
                         Columns = getAttrSet.Data.Columns,
-                        ParentType = parentType
+                        ParentType = parentType,
+                        CreatedDateTime = DateTime.UtcNow
                     };
                     result.ExpandView();
                     return Ok(result);
@@ -101,7 +102,7 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
                 data.LastModified = DateTime.UtcNow;
             }
 
-            var result = await base.SaveAsync<AdditionalViewModel>(data, true);
+            var result = await base.SaveGenericAsync<AdditionalViewModel>(data, true);
             if (result.IsSucceed)
             {
                 return Ok(result.Data);
@@ -123,37 +124,28 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         [HttpGet("init/{mixDatabase}")]
         public async Task<ActionResult<FormViewModel>> Init(string mixDatabase)
         {
-            var formData = await getFormDataAsync(mixDatabase);
+            var formData = await Helper.GetBlankFormDataAsync(mixDatabase, _lang);
             return formData != null
                 ? Ok(formData)
                 : BadRequest(mixDatabase);
         }
 
-        private async Task<FormViewModel> getFormDataAsync(string mixDatabase)
-        {
-            _ = int.TryParse(mixDatabase, out int mixDatabaseId);
-            var getAttrSet = await Lib.ViewModels.MixDatabases.UpdateViewModel.Repository.GetSingleModelAsync(m => m.Name == mixDatabase || m.Id == mixDatabaseId);
-            if (getAttrSet.IsSucceed)
-            {
-                FormViewModel result = new FormViewModel()
-                {
-                    Specificulture = _lang,
-                    MixDatabaseId = getAttrSet.Data.Id,
-                    MixDatabaseName = getAttrSet.Data.Name,
-                    Status = MixContentStatus.Published,
-                    Columns = getAttrSet.Data.Columns
-                };
-                result.ExpandView();
-                return result;
-            }
-            return null;
-        }
-
         [HttpPost("save-data/{mixDatabase}")]
-        public async Task<ActionResult<FormViewModel>> SaveData([FromRoute]string mixDatabase, [FromBody] JObject data)
+        public async Task<ActionResult<FormViewModel>> SaveData([FromRoute] string mixDatabase, [FromBody] JObject data)
         {
-            var formData = await getFormDataAsync(mixDatabase);
-            if (formData!=null)
+            FormViewModel formData;
+            string id = data.Value<string>("id");
+            if (!string.IsNullOrEmpty(id))
+            {
+                var getData = await FormViewModel.Repository.GetSingleModelAsync(m => m.Id == id && m.Specificulture == _lang);
+                formData = getData.Data;
+            }
+            else
+            {
+                formData = await Helper.GetBlankFormDataAsync(mixDatabase, _lang);
+            }
+
+            if (formData != null)
             {
                 formData.Obj = data;
                 var result = await SaveAsync(formData, true);
@@ -186,7 +178,7 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         }
 
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("import-data/{mixDatabaseName}")]
         public async Task<ActionResult<RepositoryResponse<ImportViewModel>>> ImportData(string mixDatabaseName, [FromForm] IFormFile file)
         {

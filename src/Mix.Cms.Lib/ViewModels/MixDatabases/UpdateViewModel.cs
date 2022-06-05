@@ -2,12 +2,12 @@
 using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Models.Cms;
 using Mix.Heart.Infrastructure.ViewModels;
+using Mix.Heart.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Mix.Heart.Models;
 
 namespace Mix.Cms.Lib.ViewModels.MixDatabases
 {
@@ -38,18 +38,6 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabases
 
         [JsonProperty("formTemplate")]
         public string FormTemplate { get; set; }
-
-        //[JsonProperty("edmTemplate")]
-        //public string EdmTemplate { get; set; }
-
-        //[JsonProperty("edmSubject")]
-        //public string EdmSubject { get; set; }
-
-        //[JsonProperty("edmFrom")]
-        //public string EdmFrom { get; set; }
-
-        //[JsonProperty("edmAutoSend")]
-        //public bool? EdmAutoSend { get; set; }
 
         [JsonProperty("createdBy")]
         public string CreatedBy { get; set; }
@@ -107,11 +95,9 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabases
         {
             if (Id > 0)
             {
-                Columns ??= MixDatabaseColumns.UpdateViewModel
-                .Repository.GetModelListBy(a => a.MixDatabaseId == Id, _context, _transaction).Data?.OrderBy(a => a.Priority).ToList()
+                Columns = MixDatabaseColumns.UpdateViewModel
+                .Repository.GetModelListBy(a => a.MixDatabaseName == Name, _context, _transaction).Data?.OrderBy(a => a.Priority).ToList()
                 ?? new List<MixDatabaseColumns.UpdateViewModel>();
-                //FormView = MixTemplates.UpdateViewModel.GetTemplateByPath(FormTemplate, Specificulture, _context, _transaction).Data;
-                //EdmView = MixTemplates.UpdateViewModel.GetTemplateByPath(EdmTemplate, Specificulture, _context, _transaction).Data;
             }
             else
             {
@@ -126,8 +112,6 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabases
                 Id = Repository.Max(s => s.Id, _context, _transaction).Data + 1;
                 CreatedDateTime = DateTime.UtcNow;
             }
-            //FormTemplate = FormView != null ? string.Format(@"{0}/{1}{2}", FormView.FolderType, FormView.FileName, FormView.Extension) : FormTemplate;
-            //EdmTemplate = EdmView != null ? string.Format(@"{0}/{1}{2}", EdmView.FolderType, EdmView.FileName, EdmView.Extension) : EdmTemplate;
             return base.ParseModel(_context, _transaction);
         }
 

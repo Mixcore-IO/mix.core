@@ -99,13 +99,13 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
 
         [JsonProperty("pageSize")]
         public int? PageSize { get; set; }
-        
+
         [JsonProperty("createdDateTime")]
         public DateTime CreatedDateTime { get; set; }
 
         [JsonProperty("lastModified")]
         public DateTime? LastModified { get; set; }
-        
+
         [JsonProperty("createdBy")]
         public string CreatedBy { get; set; }
 
@@ -121,6 +121,9 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
         #endregion Models
 
         #region Views
+
+        [JsonProperty("isClone")]
+        public bool IsClone { get; set; }
 
         [JsonProperty("detailsUrl")]
         public string DetailsUrl { get; set; }
@@ -184,22 +187,28 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
         public List<MixTemplates.UpdateViewModel> Masters { get; set; }
 
         [JsonIgnore]
-        public int ActivedTheme {
-            get {
+        public int ActivedTheme
+        {
+            get
+            {
                 return MixService.GetConfig<int>(MixAppSettingKeywords.ThemeId, Specificulture);
             }
         }
 
         [JsonIgnore]
-        public string TemplateFolderType {
-            get {
+        public string TemplateFolderType
+        {
+            get
+            {
                 return MixTemplateFolders.Pages.ToString();
             }
         }
 
         [JsonProperty("templateFolder")]
-        public string TemplateFolder {
-            get {
+        public string TemplateFolder
+        {
+            get
+            {
                 return $"{MixFolders.TemplatesFolder}/" +
                   $"{MixService.GetConfig<string>(MixAppSettingKeywords.ThemeName, Specificulture)}/" +
                   $"{MixTemplateFolders.Pages}";
@@ -350,6 +359,38 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
 
         #region Async
 
+        public override async Task<RepositoryResponse<bool>> CloneSubModelsAsync(MixPage parent, List<SupportedCulture> cloneCultures, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
+        {
+            string parentId = Id.ToString();
+            var result = new RepositoryResponse<bool>() { IsSucceed = true };
+            var getAdditionalData = await MixDatabaseDataAssociations.UpdateViewModel.Repository.GetFirstModelAsync(
+                    m => m.ParentId == parentId && m.ParentType == MixDatabaseParentType.Page && m.Specificulture == Specificulture,
+                    _context, _transaction);
+            if (getAdditionalData.IsSucceed)
+            {
+                getAdditionalData.Data.Cultures = Cultures;
+                var model = getAdditionalData.Data.ParseModel();
+                var cloneData = await getAdditionalData.Data.CloneAsync(model, Cultures, _context, _transaction);
+                ViewModelHelper.HandleResult(cloneData, ref result);
+            }
+            return result;
+        }
+
+        public override async Task<RepositoryResponse<bool>> RemoveRelatedModelsAsync(UpdateViewModel view, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
+        {
+            string parentId = Id.ToString();
+            var result = new RepositoryResponse<bool>() { IsSucceed = true };
+            var removeAdditionalData = await MixDatabaseDataAssociations.UpdateViewModel.Repository.RemoveListModelAsync(
+                    true,
+                    m => m.ParentId == parentId
+                        && m.MixDatabaseName == MixDatabaseNames.ADDITIONAL_COLUMN_PAGE
+                        && m.ParentType == MixDatabaseParentType.Page
+                        && m.Specificulture == Specificulture,
+                    _context, _transaction);
+            ViewModelHelper.HandleResult(removeAdditionalData, ref result);
+            return result;
+        }
+
         public override async Task<RepositoryResponse<bool>> SaveSubModelsAsync(MixPage parent, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
         {
             var result = new RepositoryResponse<bool> { IsSucceed = true };
@@ -462,14 +503,20 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
             // Load Actived Modules
             var result = MixPageModules.ReadMvcViewModel.Repository.GetModelListBy(m => m.PageId == Id && m.Specificulture == Specificulture
             , context, transaction).Data;
-            result.ForEach(nav =>
-            {
-                nav.IsActived = true;
-            });
-            var moduleids = result.Select(m => m.ModuleId);
+
+            result.ForEach(m => m.IsActived = true);
+
             // Load inactived modules
+            LoadInActivedModules(result, context, transaction);
+
+            return result.OrderByDescending(m => m.IsActived).ThenBy(m => m.Priority).ToList();
+        }
+
+        private void LoadInActivedModules(List<MixPageModules.ReadMvcViewModel> result, MixCmsContext context, IDbContextTransaction transaction)
+        {
+            var activedModuleIds = result.Select(m => m.ModuleId).ToList();
             var otherModules = MixModules.ReadListItemViewModel.Repository.GetModelListBy(
-                m => m.Specificulture == Specificulture && !moduleids.Any(r => r == m.Id)
+                m => m.Specificulture == Specificulture && !activedModuleIds.Any(o => o == m.Id)
                 , context, transaction).Data;
             foreach (var item in otherModules)
             {
@@ -479,10 +526,10 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
                     PageId = Id,
                     ModuleId = item.Id,
                     Image = item.ImageUrl,
-                    Description = item.Title
+                    Description = item.Title,
+                    IsActived = false
                 });
             }
-            return result.OrderBy(m => m.Priority).ToList();
         }
 
         #endregion Expands

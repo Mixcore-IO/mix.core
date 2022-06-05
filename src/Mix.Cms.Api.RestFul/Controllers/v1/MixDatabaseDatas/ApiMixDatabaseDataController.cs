@@ -4,7 +4,6 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Mix.Cms.Lib.Controllers;
-using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Models.Cms;
 using Mix.Cms.Lib.ViewModels.MixDatabaseDatas;
 using Mix.Heart.Infrastructure.Repositories;
@@ -20,7 +19,7 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
     public class ApiMixDatabaseDataController :
         BaseLocalizeRestApiController<MixCmsContext, MixDatabaseData, FormViewModel>
     {
-        public ApiMixDatabaseDataController(DefaultRepository<MixCmsContext, MixDatabaseData, FormViewModel> repo) 
+        public ApiMixDatabaseDataController(DefaultRepository<MixCmsContext, MixDatabaseData, FormViewModel> repo)
             : base(repo)
         {
         }
@@ -44,58 +43,54 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         [HttpGet("init/{mixDatabase}")]
         public async Task<ActionResult<FormViewModel>> Init(string mixDatabase)
         {
-            var formData = await getFormDataAsync(mixDatabase);
+            var formData = await Helper.GetBlankFormDataAsync(mixDatabase, _lang);
             return formData != null
                 ? Ok(formData)
                 : BadRequest(mixDatabase);
         }
 
         [HttpPost("save-data/{mixDatabase}")]
-        public async Task<ActionResult<FormViewModel>> SaveData([FromRoute] string mixDatabase, [FromBody] JObject data)
+        [HttpPost("save-data/{mixDatabase}/{sendMail}")]
+        public async Task<ActionResult<FormViewModel>> SaveData([FromRoute] string mixDatabase, bool? sendMail, bool? sendSms, [FromBody] JObject data)
         {
-            var formData = await getFormDataAsync(mixDatabase);
+            FormViewModel formData;
+            string id = data.Value<string>("id");
+            if (!string.IsNullOrEmpty(id))
+            {
+                var getData = await FormViewModel.Repository.GetSingleModelAsync(m => m.Id == id && m.Specificulture == _lang);
+                formData = getData.Data;
+            }
+            else
+            {
+                formData = await Helper.GetBlankFormDataAsync(mixDatabase, _lang);
+            }
             if (formData != null)
             {
                 formData.Obj = data;
                 var result = await SaveAsync(formData, true);
+                var isSendMail = result.IsSucceed && sendMail.HasValue && sendMail.Value;
+
+                if (isSendMail)
+                {
+                    await Helper.SendMail(mixDatabase, _lang, data);
+                }
                 return GetResponse(result);
             }
             return BadRequest(mixDatabase);
         }
-        
+
         [HttpPost("save-values/{dataId}")]
-        public async Task<ActionResult<FormViewModel>> SaveValue([FromRoute] string dataId, [FromBody] JObject values)
+        public async Task<ActionResult<bool>> SaveValue([FromRoute] string dataId, [FromBody] JObject values)
         {
             var getFormData = await FormViewModel.Repository.GetSingleModelAsync(m => m.Id == dataId && m.Specificulture == _lang);
             if (getFormData.IsSucceed)
             {
                 var formData = getFormData.Data;
                 formData.UpdateValues(values);
-                var result = await SaveAsync(formData, true);
+                var result = await formData.SaveValues(formData.ParseModel());
                 return GetResponse(result);
             }
             return NotFound(dataId);
         }
-
-        private async Task<FormViewModel> getFormDataAsync(string mixDatabase)
-        {
-            _ = int.TryParse(mixDatabase, out int mixDatabaseId);
-            var getAttrSet = await Lib.ViewModels.MixDatabases.UpdateViewModel.Repository.GetSingleModelAsync(m => m.Name == mixDatabase || m.Id == mixDatabaseId);
-            if (getAttrSet.IsSucceed)
-            {
-                FormViewModel result = new FormViewModel()
-                {
-                    Specificulture = _lang,
-                    MixDatabaseId = getAttrSet.Data.Id,
-                    MixDatabaseName = getAttrSet.Data.Name,
-                    Status = MixContentStatus.Published,
-                    Columns = getAttrSet.Data.Columns
-                };
-                result.ExpandView();
-                return result;
-            }
-            return null;
-        }
-
     }
 }

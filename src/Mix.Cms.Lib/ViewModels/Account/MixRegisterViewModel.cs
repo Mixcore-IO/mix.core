@@ -9,8 +9,8 @@ using Mix.Cms.Lib.Services;
 using Mix.Heart.Infrastructure.ViewModels;
 using Mix.Heart.Models;
 using Mix.Infrastructure.Repositories;
-using Mix.Services;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -88,8 +88,10 @@ namespace Mix.Cms.Lib.ViewModels.Account
         public string Domain => MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain);
 
         [JsonProperty("avatarUrl")]
-        public string AvatarUrl {
-            get {
+        public string AvatarUrl
+        {
+            get
+            {
                 if (Avatar != null && (Avatar.IndexOf("http") == -1 && Avatar[0] != '/'))
                 {
                     return $"{Domain}/{Avatar}";
@@ -103,6 +105,9 @@ namespace Mix.Cms.Lib.ViewModels.Account
 
         [JsonProperty("mediaFile")]
         public FileViewModel MediaFile { get; set; } = new FileViewModel();
+
+        [JsonProperty("userData")]
+        public JObject UserData { get; set; }
 
         #endregion Views
 

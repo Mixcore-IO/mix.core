@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
@@ -23,8 +24,10 @@ using Mix.Rest.Api.Client;
 using Mix.Services;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Unicode;
 
 namespace Mix.Cms.Web
 {
@@ -43,6 +46,12 @@ namespace Mix.Cms.Web
         {
             string[] allowedHosts = MixService.GetAppSetting<JArray>(MixAppSettingKeywords.AllowedHosts)
                                         .Select(m => m.Value<string>("text")).ToArray();
+
+            services.AddWebEncoders(options =>
+            {
+                options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(UnicodeRanges.All);
+            });
+
             services.AddCors(options =>
             {
                 options.AddPolicy(name: MixcoreAllowSpecificOrigins,
@@ -53,8 +62,6 @@ namespace Mix.Cms.Web
                                       builder.AllowAnyMethod();
                                   });
             });
-
-            services.AddResponseCompression();
 
             services.AddControllersWithViews()
                 .AddRazorRuntimeCompilation()
@@ -92,9 +99,9 @@ namespace Mix.Cms.Web
             services.AddMixRestApi();
             services.AddMixDbRepository();
             services.AddMixSignalR();
-            //services.AddMixGprc();
             services.AddMixScheduler(Configuration);
 
+            services.AddScoped<InitCmsService>();
             services.AddSingleton<MixCacheService>();
             services.AddMixAuthorize<MixDbContext>(MixService.Instance.MixAuthentications);
             services.AddScoped<MixIdentityService>();
@@ -102,6 +109,7 @@ namespace Mix.Cms.Web
             VerifyInitData(services);
             /* End Additional Config for Mixcore Cms  */
 
+            services.AddResponseCaching();
             #endregion Additionals Config for Mixcore Cms
         }
 
@@ -129,7 +137,29 @@ namespace Mix.Cms.Web
 
             app.UseResponseCompression();
 
+
             app.UseCors(MixcoreAllowSpecificOrigins);
+
+            int responseCache = MixService.GetAppSetting<int>(MixAppSettingKeywords.ResponseCache);
+            if (responseCache > 0)
+            {
+                app.UseResponseCaching();
+                app.Use(async (context, next) =>
+                {
+                    context.Response.GetTypedHeaders().CacheControl =
+                        new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
+                        {
+                            Public = true,
+                            NoCache = false,
+                            SharedMaxAge = TimeSpan.FromSeconds(responseCache),
+                            MaxAge = TimeSpan.FromSeconds(responseCache),
+
+                        };
+                    context.Response.Headers[Microsoft.Net.Http.Headers.HeaderNames.Vary] =
+                        new string[] { "Accept-Encoding" };
+                    await next();
+                });
+            }
 
             var provider = new FileExtensionContentTypeProvider();
             // Add new mappings
@@ -182,6 +212,7 @@ namespace Mix.Cms.Web
                     {
                         if (!ctx.MixDatabase.Any(m => m.Name == db.Name))
                         {
+                            db.Id = 0;
                             db.SaveModel(true, ctx, transaction);
                         }
                     }
@@ -192,6 +223,9 @@ namespace Mix.Cms.Web
                 {
                     cacheCtx.Database.Migrate();
                 }
+                var serviceProvider = services.BuildServiceProvider();
+                var _roleManager = serviceProvider.GetService<RoleManager<IdentityRole>>();
+                InitCmsService.InitRolesAsync(_roleManager).GetAwaiter();
             }
 
             // Mix: Check if require ssl

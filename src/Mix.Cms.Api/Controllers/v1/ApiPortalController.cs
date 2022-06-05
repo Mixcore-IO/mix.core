@@ -8,29 +8,24 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using Mix.Cms.Lib;
 using Mix.Cms.Lib.Constants;
-using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Helpers;
 using Mix.Cms.Lib.Models.Cms;
-using Mix.Cms.Lib.Repositories;
 using Mix.Cms.Lib.Services;
 using Mix.Cms.Lib.SignalR.Hubs;
 using Mix.Cms.Lib.ViewModels;
-using Mix.Common.Helper;
 using Mix.Heart.Helpers;
 using Mix.Heart.Models;
 using Mix.Identity.Models;
 using Mix.Infrastructure.Repositories;
-using Mix.Services;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Mix.Cms.Api.Controllers.v1
 {
+    [ApiExplorerSettings(IgnoreApi = true)]
     [Produces("application/json")]
     [Route("api/v1/portal")]
     public class ApiPortalController :
@@ -58,7 +53,7 @@ namespace Mix.Cms.Api.Controllers.v1
         #region Get
 
         [AllowAnonymous]
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("jarray-data/{name}")]
         public RepositoryResponse<JArray> loadData(string name)
         {
@@ -83,7 +78,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         [AllowAnonymous]
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("json-data/{name}")]
         public RepositoryResponse<JObject> loadJsonData(string name)
         {
@@ -97,7 +92,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/category/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("{culture}/translator")]
         [Route("translator")]
         public RepositoryResponse<JObject> Languages()
@@ -111,7 +106,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // GET api/category/id
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("{culture}/dashboard")]
         public RepositoryResponse<DashboardViewModel> Dashboard(string culture)
         {
@@ -123,7 +118,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/category/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("sitemap")]
         public async Task<RepositoryResponse<FileViewModel>> SiteMapAsync()
         {
@@ -132,7 +127,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // GET
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("app-settings/details")]
         public RepositoryResponse<JObject> LoadAppSettings()
         {
@@ -141,7 +136,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/category/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("translate-url/{culture}/{type}/{id}")]
         public async Task<RepositoryResponse<string>> TranslateUrlAsync(string culture, string type, int id)
         {
@@ -201,7 +196,7 @@ namespace Mix.Cms.Api.Controllers.v1
         #region Post
 
         [AllowAnonymous]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("encrypt")]
         public RepositoryResponse<string> Encrypt([FromBody] JObject model)
         {
@@ -215,7 +210,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         [AllowAnonymous]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("decrypt")]
         public RepositoryResponse<string> Decrypt([FromBody] JObject model)
         {
@@ -229,7 +224,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // POST api/category
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("app-settings/save")]
         public async Task<RepositoryResponse<JObject>> SaveAppSettingsAsync([FromBody] JObject model)
         {
@@ -252,7 +247,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // POST api/category
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("app-settings/save-global/{name}")]
         public RepositoryResponse<string> SaveGlobalSettings(string name, [FromBody] JObject model)
         {
@@ -271,7 +266,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // POST api/category
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("app-settings/save-default")]
         public RepositoryResponse<bool> SaveDefaultAppSettings()
         {
@@ -279,7 +274,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         [AllowAnonymous]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("sendmail")]
         public void SendMail([FromBody] JObject model)
         {
@@ -288,7 +283,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // POST api/category
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("import")]
         [Route("{culture}/import")]
         public async Task<RepositoryResponse<bool>> ImportAsync([FromForm] IFormFile assets)

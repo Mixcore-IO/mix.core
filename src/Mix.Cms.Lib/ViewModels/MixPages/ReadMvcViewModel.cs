@@ -8,7 +8,6 @@ using Mix.Cms.Lib.Services;
 using Mix.Common.Helper;
 using Mix.Heart.Infrastructure.ViewModels;
 using Mix.Heart.Models;
-using Mix.Heart.NetCore.Attributes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -19,7 +18,6 @@ using System.Text;
 
 namespace Mix.Cms.Lib.ViewModels.MixPages
 {
-    [GeneratedController("api/v1/rest/{culture}/mix-page/mvc")]
     public class ReadMvcViewModel : ViewModelBase<MixCmsContext, MixPage, ReadMvcViewModel>, IMvcViewModel
     {
         #region Properties
@@ -172,8 +170,8 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
             }
         }
 
-        [JsonProperty("attributeData")]
-        public MixDatabaseDataAssociations.ReadMvcViewModel AttributeData { get; set; }
+        [JsonProperty("additionalData")]
+        public MixDatabaseDataAssociations.ReadMvcViewModel AdditionalData { get; set; }
 
         [JsonProperty("bodyClass")]
         public string BodyClass => CssClass;
@@ -218,7 +216,7 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
         #endregion Overrides
 
         #region Expands
-        
+
         public List<MixUrlAliases.UpdateViewModel> GetAliases(MixCmsContext context, IDbContextTransaction transaction)
         {
             var result = MixUrlAliases.UpdateViewModel.Repository.GetModelListBy(p => p.Specificulture == Specificulture
@@ -247,7 +245,7 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
                 Expression<Func<MixPagePost, bool>> postExp = null;
                 foreach (var item in Modules)
                 {
-                    item.Module.LoadData(_context: context, _transaction: transaction);
+                    item.Module.LoadData(_context: context, _transaction: transaction, pageIndex: pageIndex);
                 }
                 switch (Type)
                 {
@@ -265,7 +263,7 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
                 {
                     var getPosts = MixPagePosts.ReadViewModel.Repository
                     .GetModelListBy(postExp
-                    , MixService.GetAppSetting<string>(MixAppSettingKeywords.OrderBy), 0
+                    , MixService.GetAppSetting<string>(MixAppSettingKeywords.SortBy), 0
                     , pageSize, pageIndex
                     , _context: context, _transaction: transaction);
                     if (getPosts.IsSucceed)
@@ -424,7 +422,7 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
         {
             var getPosts = MixPagePosts.ReadViewModel.Repository.GetModelListBy(
                 n => n.PageId == Id && n.Specificulture == Specificulture,
-                MixService.GetAppSetting<string>(MixAppSettingKeywords.OrderBy), 0
+                MixService.GetAppSetting<string>(MixAppSettingKeywords.SortBy), 0
                 , 4, 0
                , _context: _context, _transaction: _transaction
                );
@@ -438,10 +436,10 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
 
         private void LoadAttributes(MixCmsContext _context, IDbContextTransaction _transaction)
         {
-            var getAttrs = MixDatabases.UpdateViewModel.Repository.GetSingleModel(m => m.Name == MixConstants.MixDatabaseName.ADDITIONAL_FIELD_PAGE, _context, _transaction);
+            var getAttrs = MixDatabases.UpdateViewModel.Repository.GetSingleModel(m => m.Name == MixConstants.MixDatabaseName.ADDITIONAL_COLUMN_PAGE, _context, _transaction);
             if (getAttrs.IsSucceed)
             {
-                AttributeData = MixDatabaseDataAssociations.ReadMvcViewModel.Repository.GetFirstModel(
+                AdditionalData = MixDatabaseDataAssociations.ReadMvcViewModel.Repository.GetFirstModel(
                 a => a.ParentId == Id.ToString() && a.Specificulture == Specificulture && a.MixDatabaseId == getAttrs.Data.Id
                     , _context, _transaction).Data;
             }
@@ -454,12 +452,12 @@ namespace Mix.Cms.Lib.ViewModels.MixPages
 
         public bool HasValue(string fieldName)
         {
-            return AttributeData != null && AttributeData.Data.Obj.GetValue(fieldName) != null;
+            return AdditionalData != null && AdditionalData.Data.Obj.GetValue(fieldName) != null;
         }
 
         public T Property<T>(string fieldName)
         {
-            return MixCmsHelper.Property<T>(AttributeData?.Data?.Obj, fieldName);
+            return MixCmsHelper.Property<T>(AdditionalData?.Data?.Obj, fieldName);
         }
 
         #endregion Expands

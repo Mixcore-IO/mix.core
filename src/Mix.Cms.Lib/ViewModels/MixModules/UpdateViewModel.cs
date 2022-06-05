@@ -3,7 +3,6 @@ using Mix.Cms.Lib.Constants;
 using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Models.Cms;
 using Mix.Cms.Lib.Services;
-using Mix.Cms.Lib.ViewModels.MixDatabaseColumns;
 using Mix.Common.Helper;
 using Mix.Heart.Infrastructure.ViewModels;
 using Mix.Heart.Models;
@@ -95,6 +94,9 @@ namespace Mix.Cms.Lib.ViewModels.MixModules
 
         #region Views
 
+        [JsonProperty("isClone")]
+        public bool IsClone { get; set; }
+
         [JsonProperty("domain")]
         public string Domain { get { return MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain); } }
 
@@ -178,66 +180,6 @@ namespace Mix.Cms.Lib.ViewModels.MixModules
 
         #endregion Template
 
-        #region Form
-
-        [JsonProperty("forms")]
-        public List<MixTemplates.UpdateViewModel> Forms { get; set; }// Post Forms
-
-        [JsonIgnore]
-        public string FormFolderType
-        {
-            get
-            {
-                return MixTemplateFolders.Forms.ToString();
-            }
-        }
-
-        [JsonProperty("formView")]
-        public MixTemplates.UpdateViewModel FormView { get; set; }
-
-        [JsonProperty("formFolder")]
-        public string FormFolder
-        {
-            get
-            {
-                return $"{MixFolders.TemplatesFolder}/" +
-                    $"{MixService.GetConfig<string>(MixAppSettingKeywords.ThemeName, Specificulture)}/" +
-                    $"{MixTemplateFolders.Forms}";
-            }
-        }
-
-        #endregion Form
-
-        #region Edm
-
-        [JsonProperty("edms")]
-        public List<MixTemplates.UpdateViewModel> Edms { get; set; }// Post Edms
-
-        [JsonIgnore]
-        public string EdmFolderType
-        {
-            get
-            {
-                return MixTemplateFolders.Edms.ToString();
-            }
-        }
-
-        [JsonProperty("edmView")]
-        public MixTemplates.UpdateViewModel EdmView { get; set; }
-
-        [JsonProperty("edmFolder")]
-        public string EdmFolder
-        {
-            get
-            {
-                return $"{MixFolders.TemplatesFolder}/" +
-                   $"{MixService.GetConfig<string>(MixAppSettingKeywords.ThemeName, Specificulture)}/" +
-                   $"{MixTemplateFolders.Edms}";
-            }
-        }
-
-        #endregion Edm
-
         //Parent Post Id
         [JsonProperty("postId")]
         public string PostId { get; set; }
@@ -295,14 +237,12 @@ namespace Mix.Cms.Lib.ViewModels.MixModules
                 CreatedDateTime = DateTime.UtcNow;
             }
             Template = View != null ? $"{View.FolderType}/{View.FileName}{View.Extension}" : Template;
-            FormTemplate = FormView != null ? $"{FormView.FolderType}/{FormView.FileName}{FormView.Extension}" : FormTemplate;
-            EdmTemplate = EdmView != null ? $"{EdmView.FolderType}/{EdmView.FileName}{EdmView.Extension}" : EdmTemplate;
 
             var arrField = Columns != null ? JArray.Parse(
-                Newtonsoft.Json.JsonConvert.SerializeObject(Columns.OrderBy(c => c.Priority).Where(
+                JsonConvert.SerializeObject(Columns.OrderBy(c => c.Priority).Where(
                     c => !string.IsNullOrEmpty(c.Name)))) : new JArray();
-            Fields = arrField.ToString(Newtonsoft.Json.Formatting.None);
-            if (!string.IsNullOrEmpty(Image) && Image[0] == '/') { Image = Image.Substring(1); }
+            Fields = arrField.ToString(Formatting.None);
+            if (!string.IsNullOrEmpty(Image)) { Image = Image.TrimStart('/'); }
             return base.ParseModel(_context, _transaction);
         }
 
@@ -326,25 +266,27 @@ namespace Mix.Cms.Lib.ViewModels.MixModules
             this.View = Templates.FirstOrDefault(t => !string.IsNullOrEmpty(templateName) && templateName.Equals($"{t.FileName}{t.Extension}"));
             this.View ??= Templates.FirstOrDefault();
             this.Template = $"{View?.FileFolder}/{View?.FileName}{View?.Extension}";
-
-            this.Forms = MixTemplates.UpdateViewModel.Repository.GetModelListBy(
-                t => t.Theme.Id == ActivedTheme && t.FolderType == this.FormFolderType
-                , _context, _transaction).Data;
-            this.FormView = MixTemplates.UpdateViewModel.GetTemplateByPath(FormTemplate, Specificulture, MixTemplateFolders.Forms, _context, _transaction);
-            this.FormTemplate = $"{FormView?.FileFolder}/{FormView?.FileName}{View?.Extension}";
-
-            this.Edms = MixTemplates.UpdateViewModel.Repository.GetModelListBy(
-                t => t.Theme.Id == ActivedTheme && t.FolderType == this.EdmFolderType
-                , _context, _transaction).Data;
-            this.EdmView = MixTemplates.UpdateViewModel.GetTemplateByPath(EdmTemplate, Specificulture, MixTemplateFolders.Edms, _context, _transaction);
-            this.EdmTemplate = $"{EdmView?.FileFolder}/{EdmView?.FileName}{View?.Extension}";
         }
 
         #region Async
 
-        public override Task<RepositoryResponse<MixModule>> RemoveModelAsync(bool isRemoveRelatedModels = false, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
+        public override async Task<RepositoryResponse<bool>> RemoveRelatedModelsAsync(UpdateViewModel view, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
         {
-            return base.RemoveModelAsync(isRemoveRelatedModels, _context, _transaction);
+            string parentId = Id.ToString();
+            var result = new RepositoryResponse<bool>() { IsSucceed = true };
+            var removeAdditionalData = await MixDatabaseDataAssociations.UpdateViewModel.Repository.GetModelListByAsync(
+                    m => m.ParentId == parentId
+                        && m.MixDatabaseName == MixDatabaseNames.ADDITIONAL_COLUMN_MODULE
+                        && m.ParentType == MixDatabaseParentType.Module
+                        && m.Specificulture == Specificulture,
+                    _context, _transaction
+                        );
+            foreach (var item in removeAdditionalData.Data)
+            {
+                var temp = await item.Data.RemoveModelAsync(true, _context, _transaction);
+                ViewModelHelper.HandleResult(temp, ref result);
+            }
+            return result;
         }
 
         public override async Task<RepositoryResponse<bool>> SaveSubModelsAsync(MixModule parent, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
@@ -356,16 +298,26 @@ namespace Mix.Cms.Lib.ViewModels.MixModules
                 var saveViewResult = await View.SaveModelAsync(true, _context, _transaction);
                 ViewModelHelper.HandleResult(saveViewResult, ref result);
             }
+            return result;
+        }
 
-            if (FormView.Id == 0 && result.IsSucceed && !string.IsNullOrEmpty(FormView.Content))
+        public override async Task<RepositoryResponse<bool>> CloneSubModelsAsync(MixModule parent, List<SupportedCulture> cloneCultures, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
+        {
+            string parentId = Id.ToString();
+            var result = new RepositoryResponse<bool>() { IsSucceed = true };
+            var getAdditionalData = await MixDatabaseDataAssociations.FormViewModel.Repository.GetFirstModelAsync(
+                    m => m.ParentId == parentId && m.ParentType == MixDatabaseParentType.Module && m.Specificulture == Specificulture,
+                    _context, _transaction);
+            if (getAdditionalData.IsSucceed)
             {
-                var saveResult = await FormView.SaveModelAsync(true, _context, _transaction);
-                ViewModelHelper.HandleResult(saveResult, ref result);
-            }
-            if (EdmView.Id == 0 && result.IsSucceed && !string.IsNullOrEmpty(EdmView.Content))
-            {
-                var saveResult = await EdmView.SaveModelAsync(true, _context, _transaction);
-                ViewModelHelper.HandleResult(saveResult, ref result);
+                //getAdditionalData.Data.Cultures = Cultures;
+                //var m = getAdditionalData.Data.AttributeData.ParseModel(_context, _transaction);
+                //var cloneValue = await getAdditionalData.Data.AttributeData.CloneAsync(m, Cultures, _context, _transaction);
+
+                getAdditionalData.Data.Cultures = Cultures;
+                var model = getAdditionalData.Data.ParseModel(_context, _transaction);
+                var cloneData = await getAdditionalData.Data.CloneAsync(model, Cultures, _context, _transaction);
+                ViewModelHelper.HandleResult(cloneData, ref result);
             }
             return result;
         }

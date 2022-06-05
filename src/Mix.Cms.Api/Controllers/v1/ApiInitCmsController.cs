@@ -2,8 +2,6 @@
 // The Mixcore Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -18,7 +16,6 @@ using Mix.Cms.Lib.SignalR.Hubs;
 using Mix.Cms.Lib.ViewModels.Account;
 using Mix.Cms.Lib.ViewModels.MixInit;
 using Mix.Heart.Constants;
-using Mix.Heart.Helpers;
 using Mix.Heart.Models;
 using Mix.Identity.Constants;
 using Mix.Identity.Models;
@@ -44,7 +41,7 @@ namespace Mix.Cms.Api.Controllers.v1
            SignInManager<ApplicationUser> signInManager,
            RoleManager<IdentityRole> roleManager,
             IHubContext<PortalHub> hubContext,
-            IMemoryCache memoryCache, 
+            IMemoryCache memoryCache,
             MixIdentityService idHelper)
             : base(null, memoryCache, hubContext)
         {
@@ -65,7 +62,7 @@ namespace Mix.Cms.Api.Controllers.v1
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("init-cms/step-1")]
         public async Task<RepositoryResponse<bool>> Step1([FromBody] InitCmsViewModel model)
         {
@@ -87,7 +84,7 @@ namespace Mix.Cms.Api.Controllers.v1
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("init-cms/step-2")]
         public async Task<RepositoryResponse<AccessTokenViewModel>> InitSuperAdmin([FromBody] MixRegisterViewModel model)
         {
@@ -113,7 +110,7 @@ namespace Mix.Cms.Api.Controllers.v1
                         await MixAccountHelper.LoadUserInfoAsync(user.UserName);
                         var rsaKeys = RSAEncryptionHelper.GenerateKeys();
                         var aesKey = MixService.GetAppSetting<string>(MixAppSettingKeywords.ApiEncryptKey);
-                        
+
                         var token = await _idHelper.GenerateAccessTokenAsync(user, true, aesKey, rsaKeys[MixConstants.CONST_RSA_PUBLIC_KEY]);
                         if (token != null)
                         {
@@ -151,7 +148,7 @@ namespace Mix.Cms.Api.Controllers.v1
         // /// </summary>
         // /// <param name="model"></param>
         // /// <returns></returns>
-        // [HttpPost, HttpOptions]
+        // [HttpPost]
         // [Route("init-cms/step-5")]
         // public async Task<RepositoryResponse<bool>> InitConfigurations([FromBody]List<MixConfiguration> model)
         // {
@@ -182,7 +179,7 @@ namespace Mix.Cms.Api.Controllers.v1
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("init-cms/step-4")]
         public async Task<RepositoryResponse<bool>> InitLanguages([FromBody] List<MixLanguage> model)
         {
@@ -215,7 +212,10 @@ namespace Mix.Cms.Api.Controllers.v1
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        [HttpPost, HttpOptions]
+        /// 
+        /// Swagger cannot generate multi-form value api
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpPost]
         [Route("init-cms/step-3")]
         [DisableRequestSizeLimit]
         public async Task<RepositoryResponse<Cms.Lib.ViewModels.MixThemes.InitViewModel>> Save([FromForm] string model, [FromForm] IFormFile assets, [FromForm] IFormFile theme)
@@ -223,14 +223,14 @@ namespace Mix.Cms.Api.Controllers.v1
             string user = _idHelper._idHelper.GetClaim(User, MixClaims.Username);
             return await Mix.Cms.Lib.ViewModels.MixThemes.Helper.InitTheme(model, user, _lang, assets, theme);
         }
-        
+
         /// <summary>
         /// Step 3 when status = 3 (Finished)
         ///     - Init default theme
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("init-cms/step-3/active")]
         [DisableRequestSizeLimit]
         public async Task<ActionResult<bool>> Active([FromBody] Lib.ViewModels.MixThemes.UpdateViewModel model)
@@ -269,7 +269,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
             if (result.IsSucceed)
             {
-                await InitRolesAsync();
+                await InitCmsService.InitRolesAsync(_roleManager);
                 result.IsSucceed = true;
                 MixService.LoadFromDatabase();
                 MixService.SetConfig<string>("DefaultCulture", model.Culture.Specificulture);
@@ -286,22 +286,6 @@ namespace Mix.Cms.Api.Controllers.v1
                 MixService.SaveSettings();
             }
             return result;
-        }
-
-        private async Task<bool> InitRolesAsync()
-        {
-            bool isSucceed = true;
-            var getRoles = await RoleViewModel.Repository.GetModelListAsync();
-            if (getRoles.IsSucceed && getRoles.Data.Count == 0)
-            {
-                var saveResult = await _roleManager.CreateAsync(new IdentityRole()
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    Name = MixDefaultRoles.SuperAdmin
-                });
-                isSucceed = saveResult.Succeeded;
-            }
-            return isSucceed;
         }
 
         #endregion Helpers

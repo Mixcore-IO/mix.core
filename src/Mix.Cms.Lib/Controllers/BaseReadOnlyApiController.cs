@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Mix.Cms.Lib.Constants;
 using Mix.Cms.Lib.Services;
 using Mix.Common.Helper;
-using Mix.Heart.Infrastructure.Repositories;
-using Mix.Heart.Models;
 using Mix.Heart.Extensions;
 using Mix.Heart.Helpers;
+using Mix.Heart.Infrastructure.Repositories;
+using Mix.Heart.Models;
 using Mix.Services;
 using Newtonsoft.Json.Linq;
 using System;
@@ -34,10 +34,9 @@ namespace Mix.Cms.Lib.Controllers
         /// The domain
         /// </summary>
         protected string _domain;
-
         public BaseReadOnlyApiController(DefaultRepository<TDbContext, TModel, TView> repo)
         {
-            _repo = repo;   
+            _repo = repo;
         }
 
         #region Routes
@@ -168,7 +167,7 @@ namespace Mix.Cms.Lib.Controllers
 
         #region Helpers
 
-        protected async Task<RepositoryResponse<T>> GetSingleAsync<T>(string id)
+        protected virtual async Task<RepositoryResponse<T>> GetSingleAsync<T>(string id)
             where T : Mix.Heart.Infrastructure.ViewModels.ViewModelBase<TDbContext, TModel, T>
         {
             Expression<Func<TModel, bool>> predicate = ReflectionHelper.GetExpression<TModel>(MixQueryColumnName.Id, id, Heart.Enums.ExpressionMethod.Eq);
@@ -181,7 +180,7 @@ namespace Mix.Cms.Lib.Controllers
             return await GetSingleAsync<T>(predicate);
         }
 
-        protected async Task<RepositoryResponse<TView>> GetSingleAsync(string id)
+        protected virtual async Task<RepositoryResponse<TView>> GetSingleAsync(string id)
         {
             Expression<Func<TModel, bool>> predicate = ReflectionHelper.GetExpression<TModel>(MixQueryColumnName.Id, id, Heart.Enums.ExpressionMethod.Eq);
             if (!string.IsNullOrEmpty(_lang))

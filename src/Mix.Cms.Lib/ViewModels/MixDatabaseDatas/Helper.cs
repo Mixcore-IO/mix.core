@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Mix.Cms.Lib.Constants;
 using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Extensions;
+using Mix.Cms.Lib.Helpers;
 using Mix.Cms.Lib.Models.Cms;
 using Mix.Cms.Lib.Services;
 using Mix.Common.Helper;
-using Mix.Heart.Infrastructure.Repositories;
-using Mix.Heart.Models;
-using Mix.Heart.Infrastructure.ViewModels;
 using Mix.Heart.Extensions;
+using Mix.Heart.Infrastructure.Repositories;
+using Mix.Heart.Infrastructure.ViewModels;
+using Mix.Heart.Models;
 using Mix.Services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -63,6 +64,41 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
                 {
                     //if current Context is Root
                     UnitOfWorkHelper<MixCmsContext>.CloseDbContext(ref context, ref transaction);
+                }
+            }
+        }
+
+        public static async Task SendMail(string mixDatabase, string culture, JObject data)
+        {
+            var getEdmInfo = await GetSingleDataAsync<FormViewModel>(mixDatabase, "databaseName", MixDatabaseNames.EDM, culture);
+            if (getEdmInfo.IsSucceed)
+            {
+                var edm = getEdmInfo.Data;
+                bool sendToSender = edm.Property<bool>("sendToSender");
+                string senderColumnName = edm.Property<string>("senderColumnName");
+                var recipients = edm.Property<JArray>("recipients")?.Select(m => m.Value<string>("text"));
+                string senderEmail = EdmHelper.GetJToken(senderColumnName, data)?.Value<string>();
+
+                if (sendToSender && !string.IsNullOrEmpty(senderEmail))
+                {
+                    string senderBody = EdmHelper.GetEdmBody(edm.Property<string>("senderTemplate"), data);
+                    EdmHelper.Send(
+                        edm.Property<string>("title"),
+                        senderBody,
+                        senderEmail,
+                        edm.Property<string>("from")
+                        );
+                }
+
+                if (recipients.Count() > 0)
+                {
+                    string senderBody = EdmHelper.GetEdmBody(edm.Property<string>("adminTemplate"), data);
+                    EdmHelper.Send(
+                        edm.Property<string>("title"),
+                        senderBody,
+                        string.Join(',', recipients),
+                        edm.Property<string>("from")
+                        );
                 }
             }
         }
@@ -165,6 +201,68 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
                     UnitOfWorkHelper<MixCmsContext>.CloseDbContext(ref context, ref transaction);
                 }
             }
+        }
+
+        public static async Task<RepositoryResponse<FormViewModel>> SaveObjAsync(string databaseName, JObject obj, string parentId = null, MixDatabaseParentType? parentType = null, string culture = null)
+        {
+            culture ??= MixService.GetAppSetting<string>("DefaultCulture");
+            string id = obj.Value<string>("id");
+            FormViewModel formData;
+
+            if (id == null)
+            {
+                formData = await GetBlankFormDataAsync(databaseName, culture);
+            }
+            else
+            {
+                var getFormData = await FormViewModel.Repository.GetSingleModelAsync(m => m.Id == id && m.Specificulture == culture);
+                formData = getFormData.Data;
+            }
+
+            if (formData != null)
+            {
+                formData.ParentId = parentId;
+                if (parentType.HasValue)
+                {
+                    formData.ParentType = parentType.Value;
+                }
+                formData.Obj = obj;
+                return await formData.SaveModelAsync(true);
+            }
+            return new();
+        }
+
+        public static async Task<FormViewModel> GetBlankFormDataAsync(string mixDatabase, string culture)
+        {
+            _ = int.TryParse(mixDatabase, out int mixDatabaseId);
+            var getDatabase = await MixDatabases.UpdateViewModel.Repository.GetSingleModelAsync(
+                m => m.Name == mixDatabase || m.Id == mixDatabaseId);
+            if (getDatabase.IsSucceed)
+            {
+                FormViewModel result = new FormViewModel()
+                {
+                    Specificulture = culture,
+                    MixDatabaseId = getDatabase.Data.Id,
+                    MixDatabaseName = getDatabase.Data.Name,
+                    Status = MixContentStatus.Published,
+                    Columns = getDatabase.Data.Columns,
+                    Obj = new()
+                };
+                foreach (var item in result.Columns)
+                {
+                    if (item.DataType != MixDataType.Reference)
+                    {
+                        result.Obj.Add(new JProperty(item.Name, item.DefaultValue ?? string.Empty));
+                    }
+                    else
+                    {
+                        result.Obj.Add(new JProperty(item.Name, new JArray()));
+                    }
+
+                }
+                return result;
+            }
+            return null;
         }
 
         public static RepositoryResponse<AdditionalViewModel> LoadAdditionalData(
@@ -365,6 +463,7 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
                 mixDatabaseName = mixDatabaseName ?? request.Query["mixDatabaseName"].ToString().Trim();
                 var keyword = request.Query["keyword"].ToString();
                 var filterType = request.Query["filterType"].ToString();
+                var compareType = request.Query["compareType"].ToString();
                 var orderBy = request.Query["orderBy"].ToString();
                 int.TryParse(request.Query["mixDatabaseId"], out int mixDatabaseId);
                 bool isDirection = Enum.TryParse(request.Query["direction"], out Heart.Enums.DisplayDirection direction);
@@ -420,8 +519,17 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
                         attrPredicate = attrPredicate.AndAlsoIf(valPredicate != null, valPredicate);
                     }
 
-                    var valDataIds = context.MixDatabaseDataValue.Where(attrPredicate).Select(m => m.DataId).Distinct();
-                    predicate = predicate.AndAlsoIf(valDataIds != null, m => valDataIds.Any(id => m.Id == id));
+                    var valDataIds = context.MixDatabaseDataValue.Where(attrPredicate)
+                            .Select(m => m.DataId);
+
+                    if (compareType == "and")
+                    {
+                        valDataIds = valDataIds.GroupBy(m => m)
+                            .Select(g => new { count = g.Count(), id = g.Key })
+                            .Where(g => g.count == fieldQueries.Count)
+                            .Select(g => g.id);
+                    }
+                    predicate = predicate.AndAlsoIf(valDataIds != null, m => valDataIds.Distinct().Any(id => m.Id == id));
                 }
                 else
                 {
@@ -815,7 +923,7 @@ namespace Mix.Cms.Lib.ViewModels.MixDatabaseDatas
             }
         }
 
-        public static async Task<RepositoryResponse<PaginationModel<TView>>> GetAttributeDataByParent<TView>(
+        public static async Task<RepositoryResponse<PaginationModel<TView>>> GetMixDataByParent<TView>(
             string culture, string mixDatabaseName,
             string parentId, MixDatabaseParentType parentType,
             string orderBy, Heart.Enums.DisplayDirection direction,

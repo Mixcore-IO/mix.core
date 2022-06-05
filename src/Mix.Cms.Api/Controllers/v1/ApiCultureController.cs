@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Caching.Memory;
 using Mix.Cms.Lib.Constants;
 using Mix.Cms.Lib.Enums;
-using Mix.Cms.Lib.Helpers;
 using Mix.Cms.Lib.Models.Cms;
 using Mix.Cms.Lib.Services;
 using Mix.Cms.Lib.SignalR.Hubs;
@@ -19,7 +18,6 @@ using Mix.Identity.Constants;
 using Mix.Identity.Helpers;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
@@ -33,8 +31,8 @@ namespace Mix.Cms.Api.Controllers.v1
     {
         private readonly MixIdentityHelper _idHelper;
         public ApiCultureController(
-            MixCmsContext context, 
-            IMemoryCache memoryCache, 
+            MixCmsContext context,
+            IMemoryCache memoryCache,
             IHubContext<PortalHub> hubContext,
             MixIdentityHelper idHelper) : base(context, memoryCache, hubContext)
         {
@@ -44,7 +42,7 @@ namespace Mix.Cms.Api.Controllers.v1
         #region Get
 
         // GET api/culture/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("delete/{id}")]
         public async Task<RepositoryResponse<MixCulture>> DeleteAsync(int id)
         {
@@ -58,7 +56,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/cultures/id
-        [HttpGet, HttpOptions]
+        [HttpGet]
         [Route("details/{id}/{viewType}")]
         [Route("details/{viewType}")]
         public async Task<ActionResult<JObject>> Details(string viewType, int? id)
@@ -113,7 +111,7 @@ namespace Mix.Cms.Api.Controllers.v1
 
         // POST api/culture
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "SuperAdmin, Admin")]
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("save")]
         public async Task<RepositoryResponse<UpdateViewModel>> Save([FromBody] UpdateViewModel model)
         {
@@ -132,7 +130,7 @@ namespace Mix.Cms.Api.Controllers.v1
         }
 
         // GET api/culture
-        [HttpPost, HttpOptions]
+        [HttpPost]
         [Route("list")]
         public async Task<ActionResult<JObject>> GetList(
             [FromBody] RequestPaging request)

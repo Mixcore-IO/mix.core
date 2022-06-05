@@ -23,11 +23,11 @@ namespace Mix.Cms.Lib.Models.Common
         {
             Specificulture = culture ?? MixService.GetAppSetting<string>(MixAppSettingKeywords.DefaultCulture);
             FromDate = DateTime.TryParse(request.Query[MixRequestQueryKeywords.FromDate], out DateTime fromDate)
-                ? fromDate: null;
+                ? fromDate : null;
             ToDate = DateTime.TryParse(request.Query[MixRequestQueryKeywords.ToDate], out DateTime toDate)
-                ? toDate: null;
+                ? toDate : null;
             Status = Enum.TryParse(request.Query[MixRequestQueryKeywords.Status], out MixContentStatus status)
-                ? status : null;
+                ? status : MixContentStatus.Published;
             Keyword = request.Query.TryGetValue(MixRequestQueryKeywords.Keyword, out var orderBy)
                 ? orderBy : string.Empty;
             PagingData = new PagingRequest(request);

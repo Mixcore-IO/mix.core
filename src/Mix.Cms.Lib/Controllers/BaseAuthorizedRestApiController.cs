@@ -5,17 +5,21 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Mix.Cms.Lib.Attributes;
 using Mix.Cms.Lib.Constants;
 using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Models.Common;
+using Mix.Cms.Lib.Repositories;
 using Mix.Cms.Lib.Services;
 using Mix.Cms.Lib.SignalR.Constants;
 using Mix.Cms.Lib.ViewModels;
 using Mix.Common.Helper;
-using Mix.Heart.Infrastructure.ViewModels;
 using Mix.Heart.Enums;
 using Mix.Heart.Extensions;
 using Mix.Heart.Helpers;
+using Mix.Heart.Infrastructure.Repositories;
+using Mix.Heart.Infrastructure.ViewModels;
+using Mix.Heart.Models;
 using Mix.Identity.Constants;
 using Mix.Identity.Helpers;
 using Mix.Services;
@@ -27,10 +31,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
-using Mix.Heart.Models;
-using Mix.Heart.Infrastructure.Repositories;
-using Mix.Cms.Lib.Attributes;
-using Mix.Cms.Lib.Repositories;
 
 namespace Mix.Cms.Lib.Controllers
 {
@@ -56,7 +56,7 @@ namespace Mix.Cms.Lib.Controllers
             DefaultRepository<TDbContext, TModel, TRead> repo,
             DefaultRepository<TDbContext, TModel, TUpdate> updRepo,
             DefaultRepository<TDbContext, TModel, TDelete> delRepo,
-            MixIdentityHelper mixIdentityHelper, 
+            MixIdentityHelper mixIdentityHelper,
             AuditLogRepository auditlogRepo)
         {
             _repo = repo;
@@ -103,6 +103,26 @@ namespace Mix.Cms.Lib.Controllers
         {
             var getData = await GetSingleAsync(id);
             return GetResponse(getData, MixErrorStatus.NotFound);
+        }
+
+        [MixAuthorize]
+        [HttpGet("clone/{id}/{cloneCulture}")]
+        public virtual async Task<ActionResult<TUpdate>> Clone(string id, string cloneCulture)
+        {
+            var getData = await GetSingleAsync(id);
+            var cultures = new List<SupportedCulture>() { new SupportedCulture()
+            {
+                Specificulture = cloneCulture
+            } };
+            var result = await getData.Data.CloneAsync(getData.Data.Model, cultures);
+            if (result.IsSucceed)
+            {
+                return Ok(result.Data.FirstOrDefault());
+            }
+            else
+            {
+                return BadRequest(result.Errors);
+            }
         }
 
         [MixAuthorize]
@@ -224,6 +244,21 @@ namespace Mix.Cms.Lib.Controllers
             return GetResponse(result);
         }
 
+        // POST api/update-infos
+        [HttpPost]
+        [Route("save-many")]
+        public async Task<RepositoryResponse<List<TUpdate>>> UpdateInfos([FromBody] List<TUpdate> models)
+        {
+            if (models != null)
+            {
+                return await SaveManyAsync(models, false);
+            }
+            else
+            {
+                return new RepositoryResponse<List<TUpdate>>();
+            }
+        }
+
         [HttpPost]
         [Route("list-action")]
         public async Task<ActionResult<JObject>> ListActionAsync([FromBody] ListAction<string> data)
@@ -324,7 +359,7 @@ namespace Mix.Cms.Lib.Controllers
                     default:
                         return BadRequest(result.Errors);
                 }
-                
+
             }
         }
 
@@ -335,7 +370,7 @@ namespace Mix.Cms.Lib.Controllers
             {
                 ReflectionHelper.SetPropertyValue(item, new JProperty("Status", MixContentStatus.Published));
             }
-            return await SaveListAsync(data.Data.Items, false);
+            return await SaveManyAsync(data.Data.Items, false);
         }
 
         protected virtual async Task<RepositoryResponse<T>> GetSingleAsync<T>(string id)
@@ -496,7 +531,12 @@ namespace Mix.Cms.Lib.Controllers
             return data;
         }
 
-        protected async Task<RepositoryResponse<T>> SaveAsync<T>(T vm, bool isSaveSubModel)
+        protected virtual Task<RepositoryResponse<TUpdate>> SaveAsync(TUpdate vm, bool isSaveSubModel)
+        {
+            return SaveGenericAsync(vm, isSaveSubModel);
+        }
+
+        protected async Task<RepositoryResponse<T>> SaveGenericAsync<T>(T vm, bool isSaveSubModel)
             where T : Mix.Heart.Infrastructure.ViewModels.ViewModelBase<TDbContext, TModel, T>
         {
             if (vm != null)
@@ -537,7 +577,7 @@ namespace Mix.Cms.Lib.Controllers
             return new RepositoryResponse<TModel>();
         }
 
-        protected async Task<RepositoryResponse<List<TUpdate>>> SaveListAsync(List<TUpdate> lstVm, bool isSaveSubModel)
+        protected async Task<RepositoryResponse<List<TUpdate>>> SaveManyAsync(List<TUpdate> lstVm, bool isSaveSubModel)
         {
             var result = await DefaultRepository<TDbContext, TModel, TUpdate>.Instance.SaveListModelAsync(lstVm, isSaveSubModel);
 

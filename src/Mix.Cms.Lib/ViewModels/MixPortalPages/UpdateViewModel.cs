@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage;
 using Mix.Cms.Lib.Enums;
 using Mix.Cms.Lib.Models.Cms;
-using Mix.Heart.Models;
 using Mix.Heart.Infrastructure.ViewModels;
+using Mix.Heart.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -200,7 +200,7 @@ namespace Mix.Cms.Lib.ViewModels.MixPortalPages
 
         public override async Task<RepositoryResponse<bool>> RemoveRelatedModelsAsync(UpdateViewModel view, MixCmsContext _context = null, IDbContextTransaction _transaction = null)
         {
-            var removeNavs = await MixPortalPagePortalPages.UpdateViewModel.Repository.RemoveListModelAsync(false, p => p.PageId == Id || p.ParentId == Id);
+            var removeNavs = await MixPortalPagePortalPages.UpdateViewModel.Repository.RemoveListModelAsync(false, p => p.PageId == Id || p.ParentId == Id, _context, _transaction);
             var result = new RepositoryResponse<bool>()
             {
                 IsSucceed = true,

@@ -38,12 +38,13 @@ namespace Mix.Cms.Lib.Services
             if (MixService.Instance.CheckValidAlias(language, path))
             {
                 result["controller"] = "home";
+                result["culture"] = language;
                 result["action"] = "Index";
                 result["seoName"] = path;
                 return ValueTask.FromResult(result);
             }
 
-            
+
             string notTransformPattern = @"^(.*)\.(xml|json|html|css|js|map|jpg|png|gif|jpeg|svg|map|ico|webmanifest|woff|woff2|ttf|eot)$";
             Regex reg = new Regex(notTransformPattern);
 

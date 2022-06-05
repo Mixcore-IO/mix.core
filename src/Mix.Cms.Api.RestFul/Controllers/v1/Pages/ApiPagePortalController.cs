@@ -12,6 +12,7 @@ using Mix.Cms.Lib.Repositories;
 using Mix.Cms.Lib.ViewModels.MixPages;
 using Mix.Heart.Infrastructure.Repositories;
 using Mix.Heart.Models;
+using Mix.Identity.Constants;
 using Mix.Identity.Helpers;
 using System;
 using System.Linq;
@@ -26,11 +27,11 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
         BaseAuthorizedRestApiController<MixCmsContext, MixPage, UpdateViewModel, ReadViewModel, DeleteViewModel>
     {
         public ApiPageController(
-            DefaultRepository<MixCmsContext, MixPage, ReadViewModel> repo, 
-            DefaultRepository<MixCmsContext, MixPage, UpdateViewModel> updRepo, 
+            DefaultRepository<MixCmsContext, MixPage, ReadViewModel> repo,
+            DefaultRepository<MixCmsContext, MixPage, UpdateViewModel> updRepo,
             DefaultRepository<MixCmsContext, MixPage, DeleteViewModel> delRepo,
             MixIdentityHelper mixIdentityHelper,
-            AuditLogRepository auditlogRepo) 
+            AuditLogRepository auditlogRepo)
             : base(repo, updRepo, delRepo, mixIdentityHelper, auditlogRepo)
         {
         }
@@ -42,9 +43,10 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
             bool isFromDate = DateTime.TryParse(Request.Query[MixRequestQueryKeywords.FromDate], out DateTime fromDate);
             bool isToDate = DateTime.TryParse(Request.Query[MixRequestQueryKeywords.ToDate], out DateTime toDate);
             string keyword = Request.Query[MixRequestQueryKeywords.Keyword];
+            string createdBy = _mixIdentityHelper.GetClaim(User, MixClaims.Username);
             Expression<Func<MixPage, bool>> predicate = model =>
                 model.Specificulture == _lang
-                && (User.IsInRole(MixDefaultRoles.SuperAdmin) || model.CreatedBy == User.Claims.FirstOrDefault(c => c.Type == "Username").Value)
+                && (User.IsInRole(MixDefaultRoles.SuperAdmin) || User.IsInRole(MixDefaultRoles.Admin) || model.CreatedBy == createdBy)
                 && (!isStatus || model.Status == status)
                 && (!isFromDate || model.CreatedDateTime >= fromDate)
                 && (!isToDate || model.CreatedDateTime <= toDate)
@@ -63,6 +65,53 @@ namespace Mix.Cms.Api.RestFul.Controllers.v1
                 return BadRequest(getData.Errors);
             }
         }
+
+        protected override async Task<RepositoryResponse<UpdateViewModel>> SaveAsync(UpdateViewModel vm, bool isSaveSubModel)
+        {
+            var result = await base.SaveAsync(vm, isSaveSubModel);
+            if (result.IsSucceed && vm.IsClone)
+            {
+                var cloneResult = await vm.CloneAsync(result.Data.Model, vm.Cultures.Where(m => m.Specificulture != _lang).ToList());
+                if (!cloneResult.IsSucceed)
+                {
+                    result.IsSucceed = false;
+                    result.Errors.Add("Cannot clone");
+                    result.Errors.AddRange(cloneResult.Errors);
+                }
+            }
+            return result;
+        }
+
+        public override async Task<ActionResult<UpdateViewModel>> Duplicate(string id)
+        {
+            var getData = await GetSingleAsync(id);
+            if (getData.IsSucceed)
+            {
+                var data = getData.Data;
+                data.Id = 0;
+                data.CreatedDateTime = DateTime.UtcNow;
+                data.CreatedBy = _mixIdentityHelper.GetClaim(User, MixClaims.Username);
+                data.Title = $"Copy of {data.Title}";
+                var result = await data.SaveModelAsync(true);
+
+                if (result.IsSucceed)
+                {
+                    var getAdditionaData = await Lib.ViewModels.MixDatabaseDataAssociations.UpdateViewModel.Repository.GetFirstModelAsync(
+                            m => m.MixDatabaseName == MixDatabaseNames.ADDITIONAL_COLUMN_PAGE
+                                && m.ParentType == MixDatabaseParentType.Post
+                                && m.ParentId == id
+                                && m.Specificulture == _lang);
+                    if (getAdditionaData.IsSucceed)
+                    {
+                        getAdditionaData.Data.ParentId = result.Data.Id.ToString();
+                        await getAdditionaData.Data.DuplicateAsync();
+                    }
+                }
+                return GetResponse(result);
+            }
+            return NotFound();
+        }
+
 
         [HttpPost]
         public override Task<ActionResult<UpdateViewModel>> Create([FromBody] UpdateViewModel data)

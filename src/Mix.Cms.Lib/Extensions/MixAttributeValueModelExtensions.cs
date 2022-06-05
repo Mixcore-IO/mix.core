@@ -6,7 +6,6 @@ using Mix.Cms.Lib.Services;
 using Mix.Common.Helper;
 using Mix.Heart.Extensions;
 using Mix.Heart.Models;
-using Mix.Services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -42,7 +41,7 @@ namespace Mix.Cms.Lib.Extensions
                             item.DateTimeValue = date;
                         }
                     }
-                    return (new JProperty(item.MixDatabaseColumnName, item.DateTimeValue.Value.ToString("yyyy-MM-dd HH:mm:ss")));
+                    return (new JProperty(item.MixDatabaseColumnName, !item.DateTimeValue.HasValue ? null : item.DateTimeValue.Value.ToString("yyyy-MM-dd HH:mm:ss")));
 
                 case MixDataType.Time:
                     return (new JProperty(item.MixDatabaseColumnName, item.DateTimeValue));
@@ -60,14 +59,29 @@ namespace Mix.Cms.Lib.Extensions
                     return (new JProperty(item.MixDatabaseColumnName, new JArray()));
 
                 case MixDataType.Upload:
-                    string domain = MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain);
-                    string url = !string.IsNullOrEmpty(item.StringValue)
-                   ? !item.StringValue.Contains(domain)
-                        ? $"{MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain)}{item.StringValue}"
-                        : item.StringValue
-                   : null;
-                    return (new JProperty(item.MixDatabaseColumnName, url));
-
+                    string fullUrl = item.StringValue;
+                    fullUrl = string.IsNullOrEmpty(fullUrl) || fullUrl.IndexOf("http") >= 0
+                           ? fullUrl
+                           : $"{MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain.TrimEnd('/'))}/{fullUrl.TrimStart('/')}";
+                    return (new JProperty(item.MixDatabaseColumnName, fullUrl));
+                case MixDataType.Json:
+                    try
+                    {
+                        return (new JProperty(item.MixDatabaseColumnName, JObject.Parse(item.StringValue)));
+                    }
+                    catch
+                    {
+                        return (new JProperty(item.MixDatabaseColumnName, new JObject()));
+                    }
+                case MixDataType.Tag:
+                    try
+                    {
+                        return (new JProperty(item.MixDatabaseColumnName, JArray.Parse(item.StringValue)));
+                    }
+                    catch
+                    {
+                        return (new JProperty(item.MixDatabaseColumnName, new JArray()));
+                    }
                 case MixDataType.Custom:
                 case MixDataType.Duration:
                 case MixDataType.PhoneNumber:
@@ -88,7 +102,7 @@ namespace Mix.Cms.Lib.Extensions
                     return (new JProperty(item.MixDatabaseColumnName, item.StringValue));
             }
         }
-        
+
         public static JProperty ToJProperty(
             this ViewModels.MixDatabaseDataValues.UpdateViewModel item,
             MixCmsContext _context,
@@ -130,14 +144,20 @@ namespace Mix.Cms.Lib.Extensions
                     return (new JProperty(item.MixDatabaseColumnName, new JArray()));
 
                 case MixDataType.Upload:
-                    string domain = MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain);
-                    string url = !string.IsNullOrEmpty(item.StringValue)
-                   ? !item.StringValue.Contains(domain)
-                        ? $"{MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain.TrimEnd('/'))}/{item.StringValue.TrimStart('/')}"
-                        : item.StringValue
-                   : null;
-                    return (new JProperty(item.MixDatabaseColumnName, url));
-
+                    string fullUrl = item.StringValue;
+                    fullUrl = string.IsNullOrEmpty(fullUrl) || fullUrl.IndexOf("http") >= 0
+                           ? fullUrl
+                           : $"{MixService.GetAppSetting<string>(MixAppSettingKeywords.Domain.TrimEnd('/'))}/{fullUrl.TrimStart('/')}";
+                    return (new JProperty(item.MixDatabaseColumnName, fullUrl));
+                case MixDataType.Tag:
+                    try
+                    {
+                        return (new JProperty(item.MixDatabaseColumnName, JArray.Parse(item.StringValue)));
+                    }
+                    catch
+                    {
+                        return (new JProperty(item.MixDatabaseColumnName, new JArray()));
+                    }
                 case MixDataType.Custom:
                 case MixDataType.Duration:
                 case MixDataType.PhoneNumber:
@@ -159,7 +179,7 @@ namespace Mix.Cms.Lib.Extensions
             }
         }
 
-        public static void ToModelValue(this ViewModels.MixDatabaseDataValues.UpdateViewModel item, 
+        public static void ToModelValue(this ViewModels.MixDatabaseDataValues.UpdateViewModel item,
             JToken property,
             MixCmsContext _context = null,
             IDbContextTransaction _transaction = null)
@@ -241,6 +261,12 @@ namespace Mix.Cms.Lib.Extensions
                             item.StringValue = mediaData;
                         }
                         break;
+                    case MixDataType.Json:
+                        item.StringValue = property.HasValues ? property.Value<JObject>().ToString() : null;
+                        break;
+                    case MixDataType.Tag:
+                        item.StringValue = property.HasValues ? property.Value<JArray>().ToString() : null;
+                        break;
 
                     case MixDataType.Custom:
                     case MixDataType.Duration:
@@ -277,7 +303,7 @@ namespace Mix.Cms.Lib.Extensions
                    m => m.MixDatabaseId == mixDatabaseId
                     && m.DataType == MixDataType.Reference).ToList();
 
-            foreach (var item in refColumns.Where(p=>p.DataType == MixDataType.Reference))
+            foreach (var item in refColumns.Where(p => p.DataType == MixDataType.Reference))
             {
                 JArray arr = GetRelatedData(item.ReferenceId.Value, dataId, culture, context, transaction);
 
